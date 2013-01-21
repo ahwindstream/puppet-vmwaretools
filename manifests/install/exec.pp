@@ -20,9 +20,8 @@
 
 class vmwaretools::install::exec {
   Exec {
-    path    => ['/bin','/usr/bin'],
+    path    => ['/bin','/usr/bin','/usr/sfw/bin'],
     timeout => 0,
-    unless  => "${vmwaretools::working_dir}/version-check.sh \"${vmwaretools::version}\"",
   }
 
   file { "${vmwaretools::working_dir}/${vmwaretools::version}.tar.gz":
@@ -33,9 +32,15 @@ class vmwaretools::install::exec {
     require => File[$vmwaretools::working_dir];
   }
 
+  $tar = $::operatingsystem ? {
+    /(Solaris)/ => 'gtar',
+    default     => 'tar',
+  }
+
   exec {
     'clean_old_vmware_tools':
-      command => "find ${vmwaretools::working_dir}/*.tar.gz -not -name ${vmwaretools::version}.tar.gz -delete",
+      command => "find ${vmwaretools::working_dir}/*.tar.gz ! -name ${vmwaretools::version}.tar.gz -exec rm {} \\;",
+      unless  => "${vmwaretools::working_dir}/version-check.sh \"${vmwaretools::version}\"",
       require => [
         File[ "${vmwaretools::working_dir}/${vmwaretools::version}.tar.gz","${vmwaretools::working_dir}/version-check.sh"],
         Class['vmwaretools::install::package']
@@ -43,7 +48,8 @@ class vmwaretools::install::exec {
 
     'uncompress_vmware_tools':
       cwd     => $vmwaretools::working_dir,
-      command => "tar -xf ${vmwaretools::working_dir}/${vmwaretools::version}.tar.gz",
+      command => "${tar} -xf ${vmwaretools::working_dir}/${vmwaretools::version}.tar.gz",
+      unless  => "${vmwaretools::working_dir}/version-check.sh \"${vmwaretools::version}\"",
       require => [
         File[ "${vmwaretools::working_dir}/${vmwaretools::version}.tar.gz","${vmwaretools::working_dir}/version-check.sh"],
         Class['vmwaretools::install::package'],
@@ -52,6 +58,7 @@ class vmwaretools::install::exec {
 
     'install_vmware_tools':
       command => "${vmwaretools::working_dir}/vmware-tools-distrib/vmware-install.pl -d",
+      unless  => "${vmwaretools::working_dir}/version-check.sh \"${vmwaretools::version}\"",
       require => [
         File[ "${vmwaretools::working_dir}/${vmwaretools::version}.tar.gz","${vmwaretools::working_dir}/version-check.sh"],
         Class['vmwaretools::install::package'],
